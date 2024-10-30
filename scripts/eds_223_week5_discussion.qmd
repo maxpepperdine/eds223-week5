@@ -1,0 +1,127 @@
+---
+title: "EDS Week 5 Discussion"
+format: html
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+
+## Load packages
+
+```{r}
+library(tidyverse)
+library(sf)
+library(terra)
+library(spData)
+library(spDataLarge)
+```
+
+## Load data
+
+```{r}
+# Load raster data representing grain sizes with the three classes clay, silt and sand
+grain <- terra::rast(system.file("raster/grain.tif", package = "spData"))
+
+nz_height <- spData::nz_height
+```
+
+## Part 1:
+
+1.  Subset points higher than 3100 meters in nz_height (from spData)
+2.  Create a template raster with rast(), where the resolution is 3 km x 3 km for the extent of the subset dataset
+3.  Count numbers of the highest points in each grid cell
+4.  Find the maximum elevation in each grid cell
+
+```{r}
+# subset points higher than 3100 m in nz_height 
+nz_height_3100 <- nz_height %>% 
+  filter(elevation > 3100)
+
+
+# Create template: define the extent, resolution, and CRS based on nz_height_3100
+nz_template <- rast(terra::ext(nz_height_3100), 
+                    resolution = 3000, 
+                    crs = terra::crs(nz_height_3100))
+
+
+# Convert vector points to raster data
+# Function "length" returns a count of the elevation points per cell
+nz_raster <- rasterize(nz_height_3100, nz_template, 
+                       field = "elevation", fun = "length")
+
+plot(nz_raster, main = "Number of Elevation Points > 3100 in Each Grid Cell")
+plot(st_geometry(nz_height_3100), add = TRUE)
+
+
+# Find the maximum elevation in each grid cell
+nz_max <- rasterize(nz_height_3100, nz_template, 
+                    field = "elevation", fun = "max")
+
+plot(nz_max, main = "Maximum Elevation in Each Grid Cell ")
+plot(st_geometry(nz_height_3100), add = TRUE)
+```
+
+## Part 2:
+
+-   With the previous raster, complete the following:
+    -   Aggregate the raster that counts the highest points in New Zealand/Aotearoa
+    -   Reduce its geographic resolution by half, such that cells are 6 x 6 km
+    -   Plot the result
+-   Resample back to the original resolution of 3 km x 3 km
+
+```{r}
+# Aggregate the raster that counts the highest points in New Zealand/Aotearoa
+nz_raster_agg <- terra::aggregate(nz_raster, fact = 2, 
+                                  fun = "sum", na.rm = TRUE)
+
+plot(nz_raster_agg, 
+                 main = "Aggregated Raster")
+
+
+# Resample back to the original resolution of 3 km x 3 km
+nz_raster_resample <- terra::resample(nz_raster_agg, nz_template)
+
+plot(nz_raster_resample, 
+                      main = "Resampled Raster")
+
+
+# plot both 
+plots <- c(nz_raster, nz_raster_resample)
+labs <- c("Original 6 x 6 km", "Resample 6 x 6 km")
+plot(plots, main = labs)
+```
+
+## Part 3:
+
+- Polygonize `grain` and filter to only keep squares that represent clay
+
+```{r}
+# plot the grain rasters
+plot(grain, main = "Grain Raster")
+
+# Polygonize grain
+grain_poly <- terra::as.polygons(grain) %>% 
+  st_as_sf()
+
+plot(grain_poly, main = "Grain Polygons")
+
+
+# Filter to only keep squares that represent clay
+grain_clay <- grain_poly %>% 
+  filter(grain == "clay")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
